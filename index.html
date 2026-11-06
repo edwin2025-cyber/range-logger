@@ -3,153 +3,97 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
 <title>Range Logger</title>
-<style>
-/* Layout: one narrow column built for a phone held outdoors in sunlight.
-   Big tap targets at the top, the log and the Relay comparison below. */
-:root {
-  --bg: #f1f4f6;
-  --panel: #ffffff;
-  --ink: #12202b;
-  --muted: #52616d;
-  --line: #ccd5dc;
-  --accent: #0a5aa8;
-  --on-accent: #ffffff;
-  --good: #1a7a38;
-  --on-good: #ffffff;
-  --bad: #b3261e;
-  --on-bad: #ffffff;
-  --warn: #8a5a00;
-  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0f151a; --panel: #19222a; --ink: #e8eef3; --muted: #9bacb8; --line: #2d3a45;
-    --accent: #6db3ff; --on-accent: #0f151a; --good: #4cc26f; --on-good: #0f151a;
-    --bad: #ff7a70; --on-bad: #0f151a; --warn: #f0b84a; color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #0f151a; --panel: #19222a; --ink: #e8eef3; --muted: #9bacb8; --line: #2d3a45;
-  --accent: #6db3ff; --on-accent: #0f151a; --good: #4cc26f; --on-good: #0f151a;
-  --bad: #ff7a70; --on-bad: #0f151a; --warn: #f0b84a; color-scheme: dark;
-}
-* { box-sizing: border-box; }
-body {
-  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans);
-  font-size: 16px; line-height: 1.4;
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 16px 40px;
-}
-main { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
-h1 { font-size: 1.35rem; margin: 0; letter-spacing: 0.01em; }
-h2 { font-size: 0.8rem; margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 650; }
-.sub { margin: 2px 0 0; color: var(--muted); font-size: 0.9rem; }
-section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
-button {
-  font: inherit; font-weight: 650; color: var(--ink); background: var(--panel);
-  border: 2px solid var(--line); border-radius: 10px; padding: 12px 14px; min-height: 48px; cursor: pointer;
-}
-button:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
-button.go { background: var(--good); color: var(--on-good); border-color: var(--good); }
-button.stop { background: var(--bad); color: var(--on-bad); border-color: var(--bad); }
-button:disabled { opacity: 0.45; cursor: default; }
-.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-.row > * { min-width: 0; }
-.grow { flex: 1 1 140px; }
-.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
-.muted { color: var(--muted); }
-.small { font-size: 0.85rem; }
-.status { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
-.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); display: inline-block; flex: none; }
-.dot.ok { background: var(--good); }
-.dot.stale { background: var(--warn); }
-.dot.err { background: var(--bad); }
-.big { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 2.2rem; font-weight: 700; line-height: 1.1; }
-.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.pair > div { min-width: 0; }
-.label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
-.press { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
-.press button { min-height: 72px; font-size: 1.05rem; }
-.counter { display: flex; align-items: center; gap: 8px; }
-.counter button { min-height: 40px; min-width: 44px; padding: 6px 10px; }
-.note { margin: 10px 0 0; font-size: 0.85rem; color: var(--muted); }
-.warn { color: var(--warn); }
-.tablewrap { overflow-x: auto; }
-table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
-th, td { text-align: left; padding: 6px 5px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 650; }
-td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
-.tag { font-weight: 700; }
-.tag.good { color: var(--good); }
-.tag.bad { color: var(--bad); }
-textarea {
-  width: 100%; min-height: 110px; font-family: var(--mono); font-size: 0.8rem; color: var(--ink);
-  background: var(--bg); border: 2px solid var(--line); border-radius: 8px; padding: 8px; resize: vertical;
-}
-dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; }
-dt { color: var(--muted); }
-dd { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 650; text-align: right; overflow-wrap: anywhere; }
-svg { width: 100%; height: auto; display: block; }
-.legend svg { width: 14px; height: 14px; display: inline-block; }
-.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.82rem; color: var(--muted); margin-top: 6px; }
-.empty { color: var(--muted); font-size: 0.9rem; margin: 0; }
-@media (prefers-reduced-motion: no-preference) { button { transition: transform 0.05s; } button:active { transform: scale(0.98); } }
-</style>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+<!-- Check mark and X shapes, drawn once and reused. They stay readable without color. -->
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-check" viewBox="0 0 16 16"><path d="M3 8.5l3.2 3.2L13 4.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-x" viewBox="0 0 16 16"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></symbol>
+</svg>
+
 <main>
   <header>
-    <h1>Range Logger</h1>
+    <div class="titlebar">
+      <h1>Range Logger</h1>
+      <div class="theme" role="group" aria-label="Theme">
+        <button type="button" data-theme-choice="auto" aria-pressed="true">Auto</button>
+        <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
+        <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
+      </div>
+    </div>
     <p class="sub">SafePing Fob range walk. Logs where you stood on each button press.</p>
   </header>
 
-  <section id="gpsBox">
-    <h2>1. GPS</h2>
-    <div class="status"><span id="gpsDot" class="dot"></span><span id="gpsText">GPS is off.</span></div>
-    <div class="row" style="margin-top:10px">
-      <button id="gpsBtn" class="primary grow">Start GPS</button>
-    </div>
-    <p class="note">Allow location when the phone asks. Keep this page open and the screen on while you walk.</p>
-  </section>
-
-  <section id="baseBox">
-    <h2>2. Relay position</h2>
-    <p id="baseText" class="empty">Not set. Stand at the window next to the Relay, wait for the accuracy to drop, then tap the button.</p>
-    <div class="row" style="margin-top:10px">
-      <button id="baseBtn" class="grow" disabled>Set Relay position here</button>
-    </div>
-  </section>
-
-  <section id="logBox">
-    <h2>3. Log each press</h2>
-    <div class="pair">
-      <div>
-        <div class="label">From the Relay</div>
-        <div id="distNow" class="big">--</div>
-        <div id="distNowM" class="small muted mono">&nbsp;</div>
-      </div>
-      <div>
-        <div class="label">Next message number</div>
-        <div class="counter">
-          <button id="numDown" aria-label="Lower the number">-</button>
-          <span id="numNow" class="big">0</span>
-          <button id="numUp" aria-label="Raise the number">+</button>
+  <details id="setup" class="card setup" open>
+    <summary>
+      <span class="sum-title">Setup</span>
+      <span id="setupState" class="sum-state">GPS off. Relay not set.</span>
+    </summary>
+    <div class="setup-body">
+      <section id="gpsBox">
+        <h2>1. GPS</h2>
+        <div class="status"><span id="gpsDot" class="dot"></span><span id="gpsText">GPS is off.</span></div>
+        <div class="row gap-top">
+          <button id="gpsBtn" class="primary grow">Start GPS</button>
         </div>
-        <button id="numReset" class="small" style="margin-top:6px;min-height:36px;padding:4px 10px">Fob restarted, set to 0</button>
-      </div>
+        <p class="note">Allow location when the phone asks. Keep this page open and the screen on while you walk.</p>
+      </section>
+
+      <section id="baseBox">
+        <h2>2. Relay position</h2>
+        <p id="baseText" class="empty" aria-live="polite">Not set. Stand at the window next to the Relay, wait for the accuracy to drop, then tap the button.</p>
+        <div class="row gap-top">
+          <button id="baseBtn" class="grow" disabled>Set Relay position here</button>
+        </div>
+      </section>
     </div>
-    <div class="press">
-      <button id="saidGreen" class="go">Fob flashed<br>GREEN</button>
-      <button id="saidRed" class="stop">Fob flashed<br>RED</button>
+  </details>
+
+  <section id="logBox" class="card">
+    <h2>3. Log each press</h2>
+    <div class="label">Next message number</div>
+    <div class="counter">
+      <button id="numDown" aria-label="Lower the number">-</button>
+      <span id="numNow" class="big">0</span>
+      <button id="numUp" aria-label="Raise the number">+</button>
     </div>
-    <p id="logMsg" class="note" role="status">Press the Fob button first, watch the flash, then tap the matching button here.</p>
+    <button id="numReset">Fob restarted, set to 0</button>
+    <p class="note">The distance and the two Fob buttons are at the bottom of the screen.</p>
   </section>
 
-  <section id="tableBox">
+  <section id="resultBox" class="card">
+    <h2>Result</h2>
+    <div id="headline" hidden>
+      <p id="headText" class="headline"></p>
+      <div id="splitBar" class="split" role="img" aria-label="">
+        <span id="barWorked" class="seg good"></span>
+        <span id="barFailed" class="seg bad"></span>
+      </div>
+      <div class="split-legend">
+        <span class="chip good"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-check"/></svg>Worked <span id="cntWorked">0</span></span>
+        <span class="chip bad"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-x"/></svg>Failed <span id="cntFailed">0</span></span>
+      </div>
+      <p id="headSrc" class="note"></p>
+    </div>
+    <div id="resultExtra" class="result-extra">
+      <dl id="summary"></dl>
+    </div>
+    <div id="chartWrap" class="chart-wrap" hidden>
+      <svg id="chart" class="chart" viewBox="0 0 360 250" role="img" aria-label="Distance from the Relay for each press, in order, marked worked or failed"></svg>
+      <div class="legend">
+        <span class="ok"><svg class="ico" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="currentColor"/></svg><span class="muted">Worked</span></span>
+        <span class="no"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-x"/></svg><span class="muted">Failed</span></span>
+        <span id="legendSrc"></span>
+      </div>
+    </div>
+  </section>
+
+  <section id="tableBox" class="card">
     <h2>Log</h2>
     <p id="emptyLog" class="empty">No presses yet.</p>
     <div class="tablewrap" id="tableWrap" hidden>
@@ -158,411 +102,56 @@ svg { width: 100%; height: auto; display: block; }
         <tbody id="rows"></tbody>
       </table>
     </div>
-    <div class="row" style="margin-top:10px">
+    <div class="row gap-top">
       <button id="undoBtn" disabled>Undo last</button>
       <button id="clearBtn" disabled>Clear all</button>
     </div>
   </section>
 
-  <section id="compareBox">
+  <section id="compareBox" class="card">
     <h2>4. After the walk, compare with the Relay</h2>
-    <p class="note" style="margin-top:0">Copy the lines the Relay printed in Thonny and paste them here. The page then marks which presses the Relay really received.</p>
-    <textarea id="relayText" placeholder="time_s  message  signal_dBm  snr_dB  note&#10;3 0 -62 9.5&#10;5 1 -63 9.0" aria-label="Relay log"></textarea>
-    <div class="row" style="margin-top:10px">
+    <p class="note flush">Copy the lines the Relay printed in Thonny and paste them here. The page then marks which presses the Relay really received.</p>
+    <div class="row gap-top field">
+      <label for="method">Match presses by</label>
+      <select id="method">
+        <option value="clock">The clock (recommended)</option>
+        <option value="number">Message number</option>
+      </select>
+    </div>
+    <textarea id="relayText" class="gap-top" placeholder="time_s  message  signal_dBm  snr_dB  note&#10;3 0 -62 9.5&#10;5 1 -63 9.0" aria-label="Relay log"></textarea>
+    <div class="row gap-top">
       <button id="compareBtn" class="primary grow">Compare</button>
     </div>
-    <p id="compareMsg" class="note" role="status"></p>
+    <p id="compareMsg" class="note" role="status" aria-live="polite"></p>
   </section>
 
-  <section id="resultBox">
-    <h2>Result</h2>
-    <dl id="summary"></dl>
-    <div id="chartWrap" style="margin-top:14px" hidden>
-      <svg id="chart" viewBox="0 0 360 250" role="img" aria-label="Distance from the Relay for each press, in order, marked received or missed"></svg>
-      <div class="legend">
-        <span><svg width="14" height="14" viewBox="0 0 14 14" style="display:inline;vertical-align:-2px"><circle cx="7" cy="7" r="5" fill="var(--good)"/></svg> received</span>
-        <span><svg width="14" height="14" viewBox="0 0 14 14" style="display:inline;vertical-align:-2px"><path d="M2 2L12 12M12 2L2 12" stroke="var(--bad)" stroke-width="2.4" fill="none"/></svg> missed</span>
-        <span id="legendSrc"></span>
-      </div>
-    </div>
-  </section>
-
-  <section>
+  <section class="card">
     <h2>Save your data</h2>
     <div class="row">
       <button id="copyBtn" class="grow">Copy as CSV</button>
       <button id="dlBtn" class="grow">Download CSV</button>
     </div>
-    <p id="saveMsg" class="note" role="status">The log is kept in this browser, but copy it out when you are done.</p>
+    <p id="saveMsg" class="note" role="status" aria-live="polite">The log is kept in this browser, but copy it out when you are done.</p>
+    <textarea id="csvBox" class="gap-top" readonly hidden aria-label="CSV text to copy by hand"></textarea>
   </section>
 </main>
 
-<script>
-(function () {
-  "use strict";
-  var KEY = "rangeLogger.v1";
-  var FT = 3.28084;
-  var state = { base: null, rows: [], next: 0, relayText: "", relay: null };
-  var fix = null;          // latest GPS fix: {lat, lon, acc, t}
-  var watchId = null;
-  var $ = function (id) { return document.getElementById(id); };
+<!-- Fixed to the bottom of the screen so it stays in reach while you walk. -->
+<div class="bar" id="bar">
+  <div class="bar-in">
+    <div class="dist" id="distBox">
+      <span class="label">From the Relay</span>
+      <span id="distNow" class="big">--</span>
+      <span id="distNowM" class="small muted mono">&nbsp;</span>
+    </div>
+    <div class="press">
+      <button id="saidGreen" class="go"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-check"/></svg><span>Fob flashed<br>GREEN</span></button>
+      <button id="saidRed" class="stop"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-x"/></svg><span>Fob flashed<br>RED</span></button>
+    </div>
+    <p id="logMsg" class="note" role="status" aria-live="polite">Press the Fob button first, watch the flash, then tap the matching button here.</p>
+  </div>
+</div>
 
-  // ---------- storage (a convenience only; wrapped because it can fail) ----------
-  function load() {
-    try {
-      var raw = localStorage.getItem(KEY);
-      if (raw) {
-        var s = JSON.parse(raw);
-        if (s && Array.isArray(s.rows)) {
-          state.base = s.base || null;
-          state.rows = s.rows;
-          state.next = s.next || 0;
-          state.relayText = s.relayText || "";
-          state.relay = s.relay || null;
-        }
-      }
-    } catch (e) { /* no storage, start fresh */ }
-  }
-  function save() {
-    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
-  }
-
-  // ---------- math ----------
-  function haversine(lat1, lon1, lat2, lon2) {
-    var R = 6371000, rad = Math.PI / 180;
-    var dLat = (lat2 - lat1) * rad, dLon = (lon2 - lon1) * rad;
-    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
-  }
-  function distFromBase(f) {
-    if (!state.base || !f) return null;
-    return haversine(state.base.lat, state.base.lon, f.lat, f.lon);
-  }
-  function parseRelay(text) {
-    // Relay lines look like: "<time_s> <message> <rssi> <snr> [note]"
-    var map = {}, dup = false, lines = text.split(/\r?\n/);
-    for (var i = 0; i < lines.length; i++) {
-      var m = lines[i].match(/^\s*(\d+)\s+(\d+)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/);
-      if (!m) continue;
-      var n = parseInt(m[2], 10);
-      if (Object.prototype.hasOwnProperty.call(map, n)) dup = true;
-      map[n] = parseFloat(m[3]);
-    }
-    return { map: map, dup: dup, count: Object.keys(map).length };
-  }
-
-  // ---------- GPS ----------
-  function startGps() {
-    if (!("geolocation" in navigator)) { setGps("err", "This browser has no GPS support."); return; }
-    if (watchId !== null) return;
-    setGps("stale", "Waiting for a GPS fix...");
-    $("gpsBtn").disabled = true;
-    $("gpsBtn").textContent = "GPS running";
-    watchId = navigator.geolocation.watchPosition(onFix, onGpsError,
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
-    requestWake();
-  }
-  function onFix(pos) {
-    fix = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, t: Date.now() };
-    $("baseBtn").disabled = false;
-    updateGpsText();
-    updateDistNow();
-  }
-  function onGpsError(err) {
-    var why = err.code === 1 ? "Location is blocked. Allow it in the browser's site settings, then reload."
-            : err.code === 2 ? "No position available yet. Move near a window or outside."
-            : "GPS timed out. It keeps trying.";
-    setGps("err", why);
-    if (err.code === 1) { watchId = null; $("gpsBtn").disabled = false; $("gpsBtn").textContent = "Start GPS"; }
-  }
-  function setGps(kind, text) {
-    $("gpsDot").className = "dot " + (kind === "ok" ? "ok" : kind === "stale" ? "stale" : kind === "err" ? "err" : "");
-    $("gpsText").textContent = text;
-  }
-  function updateGpsText() {
-    if (!fix) return;
-    var age = Math.round((Date.now() - fix.t) / 1000);
-    var accTxt = "accuracy +/- " + Math.round(fix.acc) + " m (" + Math.round(fix.acc * FT) + " ft)";
-    if (age > 15) setGps("stale", "Last fix " + age + " s ago, " + accTxt);
-    else setGps("ok", "GPS fix, " + accTxt + ", " + age + " s ago");
-  }
-  var wake = null;
-  function requestWake() {
-    try {
-      if (navigator.wakeLock && document.visibilityState === "visible") {
-        navigator.wakeLock.request("screen").then(function (w) { wake = w; }, function () {});
-      }
-    } catch (e) { /* optional */ }
-  }
-  document.addEventListener("visibilitychange", function () { if (watchId !== null) requestWake(); });
-  setInterval(updateGpsText, 1000);
-
-  // ---------- base ----------
-  function setBase() {
-    if (!fix) return;
-    state.base = { lat: fix.lat, lon: fix.lon, acc: fix.acc, t: Date.now() };
-    save(); renderBase(); updateDistNow(); renderAll();
-  }
-  function renderBase() {
-    var el = $("baseText");
-    if (!state.base) {
-      el.className = "empty";
-      el.textContent = "Not set. Stand at the window next to the Relay, wait for the accuracy to drop, then tap the button.";
-      return;
-    }
-    el.className = "";
-    var b = state.base;
-    el.innerHTML = "";
-    var l1 = document.createElement("div");
-    l1.className = "mono";
-    l1.textContent = b.lat.toFixed(6) + ", " + b.lon.toFixed(6);
-    var l2 = document.createElement("div");
-    l2.className = "small " + (b.acc > 20 ? "warn" : "muted");
-    l2.textContent = "accuracy +/- " + Math.round(b.acc) + " m" +
-      (b.acc > 20 ? ". Indoor GPS is rough. Distances under about 100 ft will be off by about that much." : "");
-    el.appendChild(l1); el.appendChild(l2);
-  }
-
-  // ---------- live distance ----------
-  function updateDistNow() {
-    var d = distFromBase(fix);
-    $("distNow").textContent = d === null ? "--" : Math.round(d * FT) + " ft";
-    $("distNowM").textContent = d === null ? " " : Math.round(d) + " m";
-  }
-
-  // ---------- logging ----------
-  function logPress(saw) {
-    var msg = $("logMsg");
-    var f = fix && (Date.now() - fix.t) < 30000 ? fix : null;
-    var d = distFromBase(f);
-    var now = new Date();
-    var pad = function (v) { return (v < 10 ? "0" : "") + v; };
-    state.rows.push({
-      n: state.next,
-      time: pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds()),
-      lat: f ? f.lat : null, lon: f ? f.lon : null, acc: f ? f.acc : null,
-      d: d, saw: saw
-    });
-    var warnTxt = "";
-    if (!f) warnTxt = " No fresh GPS fix, so this press has no position.";
-    else if (!state.base) warnTxt = " Relay position not set, so there is no distance yet.";
-    msg.className = "note" + (warnTxt ? " warn" : "");
-    msg.textContent = "Logged message " + state.next + " as " + saw.toUpperCase() +
-      (d !== null ? " at " + Math.round(d * FT) + " ft." : ".") + warnTxt;
-    state.next += 1;
-    save(); renderAll();
-  }
-  function undo() {
-    if (!state.rows.length) return;
-    var r = state.rows.pop();
-    state.next = r.n;
-    save(); renderAll();
-  }
-  var clearArmed = false, clearTimer = null;
-  function clearAll() {
-    if (!clearArmed) {
-      clearArmed = true; $("clearBtn").textContent = "Tap again to clear";
-      clearTimer = setTimeout(function () { clearArmed = false; $("clearBtn").textContent = "Clear all"; }, 4000);
-      return;
-    }
-    clearTimeout(clearTimer); clearArmed = false; $("clearBtn").textContent = "Clear all";
-    state.rows = []; state.next = 0; state.relay = null; state.relayText = ""; $("relayText").value = "";
-    $("compareMsg").textContent = "";
-    save(); renderAll();
-  }
-
-  // ---------- compare ----------
-  function compare() {
-    var txt = $("relayText").value;
-    var p = parseRelay(txt);
-    state.relayText = txt;
-    var msg = $("compareMsg");
-    if (!p.count) {
-      state.relay = null;
-      msg.className = "note warn";
-      msg.textContent = "No message lines found. Paste the lines that start with a time and a message number.";
-    } else {
-      state.relay = p.map;
-      msg.className = "note" + (p.dup ? " warn" : "");
-      msg.textContent = p.count + " messages found in the Relay log." +
-        (p.dup ? " Some numbers repeat, so the Fob restarted during the walk. Use Fob restarted, set to 0 when that happens and clear old rows before a new walk." : "");
-    }
-    save(); renderAll();
-  }
-  function relayGot(r) {
-    if (!state.relay) return null;
-    return Object.prototype.hasOwnProperty.call(state.relay, r.n);
-  }
-
-  // ---------- render ----------
-  function renderAll() {
-    $("numNow").textContent = state.next;
-    var rows = state.rows;
-    $("emptyLog").hidden = rows.length > 0;
-    $("tableWrap").hidden = rows.length === 0;
-    $("undoBtn").disabled = rows.length === 0;
-    $("clearBtn").disabled = rows.length === 0;
-    var body = $("rows");
-    body.innerHTML = "";
-    rows.forEach(function (r) {
-      var tr = document.createElement("tr");
-      var got = relayGot(r);
-      var cells = [
-        [String(r.n), "num"], [r.time, "num"],
-        [r.d === null ? "--" : String(Math.round(r.d * FT)), "num"],
-        [r.acc === null ? "--" : String(Math.round(r.acc)), "num"],
-        [r.saw === "green" ? "green" : "red", "tag " + (r.saw === "green" ? "good" : "bad")],
-        [got === null ? "--" : got ? "got it" : "missed", got === null ? "" : "tag " + (got ? "good" : "bad")]
-      ];
-      cells.forEach(function (c) {
-        var td = document.createElement("td");
-        td.className = c[1]; td.textContent = c[0]; tr.appendChild(td);
-      });
-      body.appendChild(tr);
-    });
-    $("relayText").value = state.relayText;
-    renderSummary();
-    renderChart();
-    $("copyBtn").disabled = rows.length === 0;
-    $("dlBtn").disabled = rows.length === 0;
-  }
-
-  function outcome(r) {
-    var g = relayGot(r);
-    if (g !== null) return g;
-    return r.saw === "green";
-  }
-  function renderSummary() {
-    var dl = $("summary");
-    dl.innerHTML = "";
-    var rows = state.rows;
-    var add = function (k, v) {
-      var dt = document.createElement("dt"), dd = document.createElement("dd");
-      dt.textContent = k; dd.textContent = v; dl.appendChild(dt); dd.className = "mono"; dl.appendChild(dd);
-    };
-    if (!rows.length) {
-      var p = document.createElement("p"); p.className = "empty"; p.textContent = "Results show up here after your first logged press.";
-      dl.appendChild(p); dl.style.display = "block"; return;
-    }
-    dl.style.display = "grid";
-    var haveRelay = !!state.relay;
-    var got = rows.filter(outcome);
-    add("Presses logged", String(rows.length));
-    if (haveRelay) {
-      add("Relay received", got.length + " of " + rows.length);
-      var lostAck = rows.filter(function (r) { return relayGot(r) && r.saw === "red"; }).length;
-      add("Received, Fob showed red", String(lostAck));
-    } else {
-      add("Fob showed green", got.length + " of " + rows.length);
-    }
-    var withD = rows.filter(function (r) { return r.d !== null; });
-    var gotD = withD.filter(outcome).map(function (r) { return r.d; });
-    var missD = withD.filter(function (r) { return !outcome(r); }).map(function (r) { return r.d; });
-    var fmt = function (m) { return Math.round(m * FT) + " ft (" + Math.round(m) + " m)"; };
-    if (gotD.length) add("Farthest received", fmt(Math.max.apply(null, gotD)));
-    if (missD.length) {
-      add("Nearest miss", fmt(Math.min.apply(null, missD)));
-      add("Farthest miss", fmt(Math.max.apply(null, missD)));
-    } else if (withD.length) add("Misses", "none");
-    if (haveRelay) {
-      var rs = [];
-      rows.forEach(function (r) { if (relayGot(r)) rs.push(state.relay[r.n]); });
-      if (rs.length) add("Weakest signal", Math.min.apply(null, rs) + " dBm");
-    }
-  }
-
-  function renderChart() {
-    var wrap = $("chartWrap"), svg = $("chart");
-    var pts = state.rows.filter(function (r) { return r.d !== null; });
-    wrap.hidden = pts.length === 0;
-    if (!pts.length) return;
-    $("legendSrc").textContent = state.relay ? "Marks come from the Relay log." : "Marks come from the Fob light. Paste the Relay log for the real result.";
-    var W = 360, H = 250, L = 38, R = 12, T = 12, B = 34;
-    var maxFt = Math.max.apply(null, pts.map(function (r) { return r.d * FT; }));
-    var step = maxFt <= 100 ? 25 : maxFt <= 250 ? 50 : maxFt <= 600 ? 100 : 250;
-    var xmax = Math.max(step, Math.ceil(maxFt / step) * step);
-    var nmax = pts.length;
-    var X = function (ft) { return L + (ft / xmax) * (W - L - R); };
-    var Y = function (i) { return T + (nmax === 1 ? 0.5 : i / (nmax - 1)) * (H - T - B); };
-    var NS = "http://www.w3.org/2000/svg";
-    svg.innerHTML = "";
-    var el = function (name, attrs, text) {
-      var e = document.createElementNS(NS, name);
-      Object.keys(attrs).forEach(function (k) { e.setAttribute(k, attrs[k]); });
-      if (text !== undefined) e.textContent = text;
-      svg.appendChild(e); return e;
-    };
-    for (var v = 0; v <= xmax; v += step) {
-      el("line", { x1: X(v), x2: X(v), y1: T, y2: H - B, stroke: "var(--line)", "stroke-width": 1 });
-      el("text", { x: X(v), y: H - B + 16, "text-anchor": "middle", "font-size": 11, fill: "var(--muted)" }, String(v));
-    }
-    el("text", { x: (L + W - R) / 2, y: H - 4, "text-anchor": "middle", "font-size": 11, fill: "var(--muted)" }, "feet from the Relay");
-    el("text", { x: 4, y: T + 8, "font-size": 11, fill: "var(--muted)" }, "first");
-    el("text", { x: 4, y: H - B, "font-size": 11, fill: "var(--muted)" }, "last");
-    pts.forEach(function (r, i) {
-      var x = X(r.d * FT), y = Y(i);
-      if (outcome(r)) el("circle", { cx: x, cy: y, r: 4.5, fill: "var(--good)" });
-      else el("path", { d: "M" + (x - 4.5) + " " + (y - 4.5) + "L" + (x + 4.5) + " " + (y + 4.5) + "M" + (x + 4.5) + " " + (y - 4.5) + "L" + (x - 4.5) + " " + (y + 4.5),
-                        stroke: "var(--bad)", "stroke-width": 2.4, fill: "none", "stroke-linecap": "round" });
-    });
-  }
-
-  // ---------- export ----------
-  function toCsv() {
-    var head = ["message", "time", "lat", "lon", "gps_accuracy_m", "distance_m", "distance_ft", "fob_showed", "relay_received", "relay_rssi_dbm"];
-    var out = [head.join(",")];
-    state.rows.forEach(function (r) {
-      var g = relayGot(r);
-      out.push([
-        r.n, r.time,
-        r.lat === null ? "" : r.lat.toFixed(6), r.lon === null ? "" : r.lon.toFixed(6),
-        r.acc === null ? "" : Math.round(r.acc),
-        r.d === null ? "" : Math.round(r.d), r.d === null ? "" : Math.round(r.d * FT),
-        r.saw, g === null ? "" : (g ? "yes" : "no"), g ? state.relay[r.n] : ""
-      ].join(","));
-    });
-    return out.join("\n") + "\n";
-  }
-  function copyCsv() {
-    var csv = toCsv(), msg = $("saveMsg");
-    var fallback = function () {
-      $("relayText").value = csv; $("relayText").select();
-      msg.textContent = "Copy was blocked. The CSV is in the box above, select it and copy by hand.";
-    };
-    try {
-      navigator.clipboard.writeText(csv).then(function () { msg.textContent = "CSV copied."; }, fallback);
-    } catch (e) { fallback(); }
-  }
-  function downloadCsv() {
-    try {
-      var blob = new Blob([toCsv()], { type: "text/csv" });
-      var a = document.createElement("a");
-      a.href = URL.createObjectURL(blob); a.download = "range-walk.csv";
-      document.body.appendChild(a); a.click(); a.remove();
-      $("saveMsg").textContent = "CSV saved to your downloads.";
-    } catch (e) { $("saveMsg").textContent = "Download failed. Use Copy as CSV."; }
-  }
-
-  // ---------- wiring ----------
-  $("gpsBtn").addEventListener("click", startGps);
-  $("baseBtn").addEventListener("click", setBase);
-  $("saidGreen").addEventListener("click", function () { logPress("green"); });
-  $("saidRed").addEventListener("click", function () { logPress("red"); });
-  $("numUp").addEventListener("click", function () { state.next += 1; save(); renderAll(); });
-  $("numDown").addEventListener("click", function () { if (state.next > 0) { state.next -= 1; save(); renderAll(); } });
-  $("numReset").addEventListener("click", function () { state.next = 0; save(); renderAll(); });
-  $("undoBtn").addEventListener("click", undo);
-  $("clearBtn").addEventListener("click", clearAll);
-  $("compareBtn").addEventListener("click", compare);
-  $("copyBtn").addEventListener("click", copyCsv);
-  $("dlBtn").addEventListener("click", downloadCsv);
-
-  load();
-  renderBase();
-  renderAll();
-  window.__rangeLogger = { parseRelay: parseRelay, haversine: haversine };
-})();
-</script>
+<script src="app.js"></script>
 </body>
 </html>
