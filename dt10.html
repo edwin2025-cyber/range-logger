@@ -40,7 +40,7 @@
   .hint { text-align: center; color: var(--muted); font-size: 0.9rem; margin-top: 2px; }
   button { font: inherit; touch-action: manipulation; cursor: pointer; }
 
-  .spots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .spots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .spot-btn {
     min-height: 64px; padding: 8px 6px; border-radius: 12px; border: 2px solid var(--line);
     background: transparent; color: var(--text); font-weight: 700; line-height: 1.2;
@@ -50,13 +50,15 @@
   .spot-btn[aria-pressed="true"] .cnt { color: var(--accent-text); }
 
   .count { font-size: 1.5rem; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; margin: 2px 0 12px; }
-  .results { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .results { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .res-btn {
-    min-height: 96px; border-radius: 14px; font-size: 1.35rem; font-weight: 800; line-height: 1.15;
+    min-height: 96px; padding: 8px 4px; border-radius: 14px; font-size: 1.1rem; font-weight: 800; line-height: 1.15;
     border: 2px solid transparent;
   }
   .res-btn.yes { background: var(--ok); color: #ffffff; }
   .res-btn.no { background: var(--bad); color: #ffffff; }
+  .res-btn.none { background: var(--bg); color: var(--text); border-color: var(--muted); }
+  .countdown { min-height: 1.4em; margin-top: 10px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
   @media (prefers-color-scheme: dark) {
     .res-btn.yes, .res-btn.no { color: #0f1216; }
   }
@@ -92,6 +94,7 @@
   .tag { display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; font-weight: 700; font-size: 0.82rem; white-space: nowrap; }
   .tag.yes { color: var(--ok); background: var(--ok-bg); }
   .tag.no { color: var(--bad); background: var(--bad-bg); }
+  .tag.none { color: var(--muted); background: transparent; }
   .empty { color: var(--muted); text-align: center; padding: 16px 0; }
   .small { color: var(--muted); font-size: 0.85rem; margin: 6px 0 0; }
   .status { min-height: 1.2em; color: var(--muted); font-size: 0.9rem; margin-top: 8px; }
@@ -101,7 +104,7 @@
 <body>
 <main>
   <h1>GPS Accuracy Test</h1>
-  <p class="sub">DT-10. At each spot, set the true location, then tap Confirmed or Not confirmed for each press. <a href="index.html">Range Logger</a></p>
+  <p class="sub">DT-10. At each spot, set the true location, then tap Confirm buzz, Fail buzz, or No result buzz for each press. <a href="index.html">Range Logger</a></p>
 
   <section class="card">
     <div class="clock" id="clock">--:--:--</div>
@@ -122,15 +125,17 @@
     <div class="row" style="margin-top:8px">
       <button class="tool" id="gps" type="button">Use phone GPS</button>
     </div>
-    <p class="small">Paste from Google Maps: long-press the spot, then tap the numbers to copy them.</p>
+    <p class="small">Tapping a spot fills its preset location. You can edit it, or paste from Google Maps: long-press the spot, then tap the numbers to copy them.</p>
   </section>
 
   <section class="card">
     <div class="count" id="count" aria-live="polite"></div>
     <div class="results">
-      <button class="res-btn yes" id="yes" type="button">Confirmed</button>
-      <button class="res-btn no" id="no" type="button">Not confirmed</button>
+      <button class="res-btn yes" id="yes" type="button">Confirm buzz</button>
+      <button class="res-btn no" id="no" type="button">Fail buzz</button>
+      <button class="res-btn none" id="none" type="button">No result buzz</button>
     </div>
+    <div class="countdown" id="countdown"></div>
     <p class="small">A second tap within 2 seconds is ignored (tap guard).</p>
     <div class="status" id="status" role="status" aria-live="polite"></div>
   </section>
@@ -177,12 +182,28 @@
   "use strict";
   var KEY = "dt10.v1";
   var GUARD_MS = 2000;
-  var SPOTS = ["Soccer field", "Quad", "Parking lot"];
+  var COUNTDOWN_MS = 30000;
+  var PRESETS = [
+    { name: "Quad", loc: "34.7255497, -86.6552746" },
+    { name: "Sidewalk", loc: "34.7252069, -86.6547724" },
+    { name: "Soccer field", loc: "34.7235808, -86.6539513" },
+    { name: "Courts", loc: "34.7243290, -86.6539111" }
+  ];
+  var SPOTS = PRESETS.map(function (p) { return p.name; });
+  var RESULTS = {
+    confirm: { label: "Confirm buzz", short: "Confirm", cls: "yes" },
+    fail: { label: "Fail buzz", short: "Fail", cls: "no" },
+    none: { label: "No result buzz", short: "No result", cls: "none" }
+  };
 
-  function blankSpot() { return { loc: "", source: "maps_pin", acc: null, note: "" }; }
+  function presetLoc(name) {
+    for (var i = 0; i < PRESETS.length; i++) { if (PRESETS[i].name === name) { return PRESETS[i].loc; } }
+    return "";
+  }
+  function blankSpot(name) { return { loc: presetLoc(name), source: "maps_pin", acc: null, note: "" }; }
   function freshState() {
     var s = { spot: SPOTS[0], target: 5, spots: {}, rows: [] };
-    SPOTS.forEach(function (name) { s.spots[name] = blankSpot(); });
+    SPOTS.forEach(function (name) { s.spots[name] = blankSpot(name); });
     return s;
   }
 
@@ -194,13 +215,18 @@
       var saved = raw ? JSON.parse(raw) : null;
       if (saved && Array.isArray(saved.rows)) {
         s.rows = saved.rows;
+        // Rows saved by the first version used other result words.
+        s.rows.forEach(function (r) {
+          if (r.result === "confirmed") { r.result = "confirm"; }
+          else if (r.result === "not_confirmed") { r.result = "fail"; }
+        });
         if (SPOTS.indexOf(saved.spot) !== -1) { s.spot = saved.spot; }
         if (saved.target > 0) { s.target = saved.target; }
         SPOTS.forEach(function (name) {
           var sp = saved.spots && saved.spots[name];
           if (sp) {
             s.spots[name] = {
-              loc: String(sp.loc || ""),
+              loc: String(sp.loc || presetLoc(name)),
               source: sp.source === "phone_gps" ? "phone_gps" : "maps_pin",
               acc: typeof sp.acc === "number" ? sp.acc : null,
               note: String(sp.note || "")
@@ -221,6 +247,9 @@
   var clearArmed = false, clearTimer = null;
   var wakeLock = null, wantWake = false;
   var gpsBusy = false;
+  // When the 30 second reminder ends. 0 means no reminder is running.
+  var countdownUntil = state.rows.length ? state.rows[state.rows.length - 1].epoch_ms + COUNTDOWN_MS : 0;
+  if (countdownUntil <= Date.now()) { countdownUntil = 0; }
 
   var el = function (id) { return document.getElementById(id); };
   function pad(n) { return (n < 10 ? "0" : "") + n; }
@@ -262,7 +291,7 @@
       s.textContent = "From phone GPS, accuracy +/- " + Math.round(sp.acc) + " m. Rows are marked phone_gps.";
     } else {
       s.className = "srcline";
-      s.textContent = sp.loc ? "Pasted pin. Rows are marked maps_pin." : "";
+      s.textContent = sp.loc ? "Map pin. Rows are marked maps_pin." : "";
     }
   }
 
@@ -294,12 +323,16 @@
   }
 
   function pickSpot(name) {
-    if (name === state.spot) { return; }
+    // Every tap on a spot loads its preset location, even the spot already selected.
     state.spot = name;
+    var sp = state.spots[name];
+    sp.loc = presetLoc(name);
+    sp.source = "maps_pin";
+    sp.acc = null;
     save();
     renderSpots();
     renderSpotFields();
-    setStatus("Spot set to " + name + ".");
+    setStatus(name + ": preset location filled. You can edit it.");
   }
 
   function renderRows() {
@@ -315,9 +348,9 @@
       });
       var td = document.createElement("td");
       var tag = document.createElement("span");
-      var yes = r.result === "confirmed";
-      tag.className = "tag " + (yes ? "yes" : "no");
-      tag.textContent = yes ? "Confirmed" : "Not confirmed";
+      var info = RESULTS[r.result] || RESULTS.none;
+      tag.className = "tag " + info.cls;
+      tag.textContent = info.short;
       td.appendChild(tag);
       tr.appendChild(td);
       body.appendChild(tr);
@@ -326,6 +359,14 @@
   }
 
   function renderAll() { renderSpots(); renderRows(); }
+
+  // A reminder only. The result buttons stay usable the whole time.
+  function renderCountdown() {
+    var box = el("countdown");
+    if (!countdownUntil) { box.textContent = ""; return; }
+    var left = Math.ceil((countdownUntil - Date.now()) / 1000);
+    box.textContent = left > 0 ? "Next press in " + left + " s" : "Ready for the next press.";
+  }
 
   function record(result, button) {
     var now = Date.now();
@@ -358,10 +399,11 @@
     };
     state.rows.push(row);
     newestId = row.id;
+    countdownUntil = now + COUNTDOWN_MS;
     save();
     renderAll();
-    setStatus("Saved " + row.spot + " press " + row.press + ": " +
-      (result === "confirmed" ? "Confirmed" : "Not confirmed") + ".");
+    renderCountdown();
+    setStatus("Saved " + row.spot + " press " + row.press + ": " + RESULTS[result].short + ".");
   }
 
   function useGps() {
@@ -433,8 +475,9 @@
   }
 
   // ---------- wiring ----------
-  el("yes").addEventListener("click", function () { record("confirmed", el("yes")); });
-  el("no").addEventListener("click", function () { record("not_confirmed", el("no")); });
+  el("yes").addEventListener("click", function () { record("confirm", el("yes")); });
+  el("no").addEventListener("click", function () { record("fail", el("no")); });
+  el("none").addEventListener("click", function () { record("none", el("none")); });
   el("gps").addEventListener("click", useGps);
 
   el("loc").addEventListener("input", function () {
@@ -454,6 +497,8 @@
     var r = state.rows.pop();
     newestId = state.rows.length ? state.rows[state.rows.length - 1].id : null;
     lastTapAt = 0;
+    countdownUntil = 0;
+    renderCountdown();
     save();
     renderAll();
     setStatus("Removed row " + r.n + " (" + r.spot + " press " + r.press + ").");
@@ -496,6 +541,8 @@
     state.target = target;
     newestId = null;
     lastTapAt = 0;
+    countdownUntil = 0;
+    renderCountdown();
     save();
     renderAll();
     renderSpotFields();
@@ -536,7 +583,7 @@
     setStatus("Presses per spot set to " + n + ".");
   });
 
-  function tick() { el("clock").textContent = hms(new Date()); }
+  function tick() { el("clock").textContent = hms(new Date()); renderCountdown(); }
   setInterval(tick, 250);
   tick();
   el("target").value = state.target;
